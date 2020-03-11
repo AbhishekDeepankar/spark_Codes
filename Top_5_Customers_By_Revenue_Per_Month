@@ -1,0 +1,23 @@
+val sqlContext = new org.apache.spark.sql.SQLContext(sc)
+val ordersRaw = sc.textFile("/data_set/retail_db/orders/part-00000")
+val orderItemsRaw = sc.textFile("/data_set/retail_db/order_items/part-00000")
+val customersRaw = sc.textFile("/data_set/retail_db/customers/part-00000")
+val ordersFiltered = ordersRaw.map(o => (o.split(',')(0), o.split(',')(1), o.split(',')(2), o.split(',')(3)))
+val ordersDf = ordersFiltered.toDF("order_id","order_date","order_customer_id","order_status")
+val orderItemsFiltered = orderItemsRaw.map(o => (o.split(',')(0), o.split(',')(1), o.split(',')(2), o.split(',')(3), o.split(',')(4), o.split(',')(5)))
+val orderItemsDF = orderItemsFiltered.toDF("order_item_id","order_item_order_id","order_item_product_id","order_item_quantity","order_item_subtotal","order_item_product_price")
+val customersFiltered = customersRaw.map(c => (c.split(',')(0), c.split(',')(1), c.split(',')(2), c.split(',')(3), c.split(',')(4), c.split(',')(5), c.split(',')(6), c.split(',')(7), c.split(',')(8)))
+val customersDF = customersFiltered.toDF("customer_id", "customer_fname", "customer_lname", "customer_email", "customer_password", "customer_street", "customer_city", "customer_state", "customer_zipcode")
+ordersDf.registerTempTable("ordersTemp")
+orderItemsDF.registerTempTable("orderItemsTemp")
+customersDF.registerTempTable("customersTemp")
+sqlContext.sql("insert into orders select * from ordersTemp")
+sqlContext.sql("create table retail.orders(order_id int,order_date date,order_customer_id int,order_status varchar(50))")
+sqlContext.sql("create table retail.order_items(order_item_id int,order_item_order_id int,order_item_product_id int,order_item_quantity int,order_item_subtotal float,order_item_product_price float)")
+sqlContext.sql("create table retail.customers(customer_id int, customer_fname varchar(50), customer_lname varchar(50), customer_email varchar(50), customer_password varchar(50), customer_street varchar(100), customer_city varchar(100), customer_state varchar(100), customer_zipcode varchar(50))")
+sqlContext.sql("insert into order_items select * from orderItemsTemp")
+sqlContext.sql("insert into customers select * from customersTemp")
+sqlContext.sql("use retail")
+
+//top 5 customers having highest revenue per month
+select c.ranked, c.months, cu.customer_id, cu.customer_fname, cu.customer_lname, c.revenue from (select subq.order_id,subq.revenue, subq.months, subq.order_customer_id, rank() over(partition by subq.months order by subq.revenue desc) as ranked from (select o.order_id, sum(oi.order_item_subtotal) as revenue, concat(substr(cast(o.order_date as String), 6,2), substr(cast(o.order_date as String), 1,4)) months,o.order_customer_id from orders o join order_items oi on o.order_id=oi.order_item_order_id group by o.order_id, concat(substr(cast(o.order_date as String), 6,2), substr(cast(o.order_date as String), 1,4)), o.order_customer_id order by revenue desc) subq order by subq.months) c join customers cu on c.order_customer_id=cu.customer_id where c.ranked<=5
