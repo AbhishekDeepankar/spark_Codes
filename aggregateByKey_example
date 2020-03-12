@@ -1,0 +1,29 @@
+val orderItemRDD = sc.textFile("file:///Users/dbmstutorials/spark/orderItem.txt")
+ 
+--Setting partition to 1
+val orderItemMap = orderItemRDD.map(orderItem => (1,orderItem.split(",")(4).toFloat)).repartition(1)  //5th field in sample file is revenue
+
+orderItemMap.getNumPartitions // Check Number of RDD partiton is 1
+res1: Int = 1
+   
+   
+AggregateByKey using external functions
+val init_value = (0.0f, 0.0f,0.0f) //Intial Value for Revenue(sum), total items(count) & Average revenue (sum/count)
+val combinerFunc = (inter:(Float, Float, Float), value:Float) => { (inter._1 + value, inter._2+1,(inter._1+value)/(inter._2+1))}
+val reduceFunc = (p1:(Float, Float, Float), p2:(Float, Float, Float)) => { (p1._1 + p2._1, p1._2+p2._2, (p1._1 + p2._1)/(p1._2+p2._2)) }
+
+val revenueAndCountAndAvg = orderItemMap.
+  aggregateByKey(init_value)(combinerFunc,reduceFunc)
+
+
+AggregateByKey by defining functions internally
+
+val revenueAndCountAndAvg = orderItemMap.
+  aggregateByKey((0.0f, 0,0.0f))(
+   (inter, value) => { 
+            (inter._1 + value, inter._2+1,(inter._1+value)/(inter._2+1))}, //1st processing adds all the values, 2nd processing counts all records, 3rd processing is sum/count
+   (p1, p2) => { 
+            (p1._1 + p2._1, p1._2+p2._2, (p1._1 + p2._1)/(p1._2+p2._2))
+   }
+ )
+revenueAndCountAndAvg.collect.foreach(println)
