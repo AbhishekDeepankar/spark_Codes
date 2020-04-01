@@ -1,0 +1,17 @@
+val raw = sc.textFile("/covid-19_data/time_series_covid_19_deaths.csv")
+val header = raw.first
+val headerLess = raw.filter(r => r != header)
+val combineMap = headerLess.map(r => {
+val headerLessDeathCount = r.split(',').slice(4,73)
+val headerLessDetails = r.split(',').slice(0,4)
+var str = 0
+var strng = ""
+val map1 = for(i <- headerLessDeathCount){
+    str =  i.toInt + str
+ }
+val combinedData = for(i <- headerLessDetails){
+	strng = strng + i + " | "
+} 
+val combinedFinal = strng + str
+combinedFinal
+})
